@@ -1,0 +1,329 @@
+{
+ "v": 1,
+ "generated": "2026-11-22T00:17:01Z",
+ "plugins": [
+  {
+   "id": "buddy-beatdown",
+   "name": "Buddy Beatdown",
+   "trusted": true,
+   "author": "idiotthemodder",
+   "desc": "Everything for Buddy Beatdown in one install: player + powers, combat, ESP / camera, world + lobby, fun / soundboard, account, dev tools.",
+   "game": [
+    "com.armoredpigstudios.beathimup"
+   ],
+   "version": "5f8b79ffe0bd",
+   "updated": "2026-11-22",
+   "files": [
+    {
+     "name": "0_buddy_engine.js",
+     "path": "official/buddy-beatdown/0_buddy_engine.js",
+     "sha256": "4cffa3273d4e8a06653efd5b60ef963aa41edc82aee7550d4dc0e8000446141d",
+     "size": 187592
+    },
+    {
+     "name": "0_buddy_engine_thooms.js",
+     "path": "official/buddy-beatdown/0_buddy_engine_thooms.js",
+     "sha256": "4c962b8edf6fc5de3043ac0d60c4485d28b7dfb5ab1a27a81af7979425345550",
+     "size": 151638
+    },
+    {
+     "name": "1_buddy_player.js",
+     "path": "official/buddy-beatdown/1_buddy_player.js",
+     "sha256": "70dd3f4621477df460e79a259d1732bff47093ae430b98ceb70bb7767e73b8af",
+     "size": 765
+    },
+    {
+     "name": "2_buddy_combat.js",
+     "path": "official/buddy-beatdown/2_buddy_combat.js",
+     "sha256": "3917262f6bafbbace7f92b510493809785334d37a6856d921cf7ca356ea2ebdc",
+     "size": 776
+    },
+    {
+     "name": "3_buddy_visuals.js",
+     "path": "official/buddy-beatdown/3_buddy_visuals.js",
+     "sha256": "eee7a210d0f7b820228be1f458ca4a7cfc263a1a24629b3a5172ccdade6dc01f",
+     "size": 712
+    },
+    {
+     "name": "4_buddy_world.js",
+     "path": "official/buddy-beatdown/4_buddy_world.js",
+     "sha256": "82e040edcec3e6c2729e3741bf7dc22f79a527ecf973b6762e7c6bbf0e1e0590",
+     "size": 778
+    },
+    {
+     "name": "5_buddy_fun.js",
+     "path": "official/buddy-beatdown/5_buddy_fun.js",
+     "sha256": "9b1c679b6e765559f56b5cbd11f903003d2d1d4460a5dda713fe51870b8bb48b",
+     "size": 756
+    },
+    {
+     "name": "6_buddy_account.js",
+     "path": "official/buddy-beatdown/6_buddy_account.js",
+     "sha256": "c8bc9535b4988e1bb2486129e675620e0802fc6e4d155b0039257ef80d078ac0",
+     "size": 755
+    },
+    {
+     "name": "7_buddy_dev.js",
+     "path": "official/buddy-beatdown/7_buddy_dev.js",
+     "sha256": "af4888e3c16eec7259aadede4f2f2b9d7d350e62aac936f3445e34588d693deb",
+     "size": 719
+    }
+   ],
+   "scan": {
+    "high": 0,
+    "medium": 1,
+    "low": 4
+   }
+  },
+  {
+   "id": "animal-rails",
+   "name": "Animal Rails",
+   "trusted": true,
+   "author": "idiotthemodder",
+   "desc": "animal_rails.js - Animal Rails (com.mingkun.animalrails) plugin for the universal Frida menu",
+   "game": [
+    "com.mingkun.animalrails"
+   ],
+   "version": "d05849469cd6",
+   "updated": "2026-11-22",
+   "files": [
+    {
+     "name": "animal_rails.js",
+     "path": "official/animal-rails/animal_rails.js",
+     "sha256": "57d6201ebaa2d478493eca693a0a51a6901cd91d00dda8e27be33d1ae694a87f",
+     "size": 21260
+    }
+   ],
+   "scan": {
+    "high": 0,
+    "medium": 0,
+    "low": 0
+   }
+  },
+  {
+   "id": "animal-rails-identity",
+   "name": "Animal Rails: Identity",
+   "trusted": true,
+   "author": "idiotthemodder",
+   "desc": "animal_rails_identity.js - rainbow player color + name changer for Animal Rails",
+   "game": [
+    "com.mingkun.animalrails"
+   ],
+   "version": "5f1be7cb42aa",
+   "updated": "2026-11-22",
+   "files": [
+    {
+     "name": "animal_rails_identity.js",
+     "path": "official/animal-rails-identity/animal_rails_identity.js",
+     "sha256": "4728c1ced960c7cf043eacef1974549ed37f1ff484a7b06f5421a9d20f633603",
+     "size": 6778
+    }
+   ],
+   "scan": {
+    "high": 0,
+    "medium": 0,
+    "low": 0
+   }
+  },
+  {
+   "id": "animal-rails-nametags",
+   "name": "Animal Rails: Nametags",
+   "trusted": true,
+   "author": "idiotthemodder",
+   "desc": "animal_rails_nametags.js - customizable nametags for Animal Rails",
+   "game": [
+    "com.mingkun.animalrails"
+   ],
+   "version": "c100dde0e3f0",
+   "updated": "2026-11-22",
+   "files": [
+    {
+     "name": "animal_rails_nametags.js",
+     "path": "official/animal-rails-nametags/animal_rails_nametags.js",
+     "sha256": "dd453d48c6f6cbf50f534c0d0a526daf9443aaa36eeb81d99f6aee6c99c23692",
+     "size": 9109
+    }
+   ],
+   "scan": {
+    "high": 0,
+    "medium": 0,
+    "low": 0
+   }
+  },
+  {
+   "id": "animal-rivals",
+   "name": "Animal Rivals",
+   "trusted": true,
+   "author": "idiotthemodder",
+   "desc": "animal_rivals.js - Animal Rivals (com.dogelabs.deadeye) mods as a plugin for the universal menu.",
+   "game": [
+    "com.dogelabs.deadeye"
+   ],
+   "version": "a76c501f9985",
+   "updated": "2026-11-22",
+   "files": [
+    {
+     "name": "animal_rivals.js",
+     "path": "official/animal-rivals/animal_rivals.js",
+     "sha256": "16a8d836e13bc4a52ba310656898e0487b30e8d42b2862a1070e2435f6259f57",
+     "size": 571640
+    }
+   ],
+   "scan": {
+    "high": 0,
+    "medium": 1,
+    "low": 1
+   }
+  },
+  {
+   "id": "big-scary",
+   "name": "Big Scary",
+   "trusted": true,
+   "author": "idiotthemodder",
+   "desc": "big_scary.js - Big Scary (Axelmatic) plugin for the universal menu (v1.1).",
+   "game": [
+    "com.Axelmatic.Bigscary"
+   ],
+   "version": "17085f9dd87b",
+   "updated": "2026-11-22",
+   "files": [
+    {
+     "name": "big_scary.js",
+     "path": "official/big-scary/big_scary.js",
+     "sha256": "4630e6aeeb0e8051ca6e49ae68413786dbf90eb229537a4f6b8558664a33b194",
+     "size": 46061
+    }
+   ],
+   "scan": {
+    "high": 0,
+    "medium": 0,
+    "low": 0
+   }
+  },
+  {
+   "id": "gandys-nextbots",
+   "name": "Gandalf's Nextbots",
+   "trusted": true,
+   "author": "idiotthemodder",
+   "desc": "gandys_nextbots.js - Gandalf's Nextbots (LuWiGames) plugin for the universal menu (v1.5).",
+   "game": [
+    "com.LuWiGames.GandalfsNextbots"
+   ],
+   "version": "63855b600fd6",
+   "updated": "2026-11-22",
+   "files": [
+    {
+     "name": "gandys_nextbots.js",
+     "path": "official/gandys-nextbots/gandys_nextbots.js",
+     "sha256": "7f9d60687890d912832a16617dae2e64dab9720f1ae83fb7d0287a71f8dc20ba",
+     "size": 89122
+    }
+   ],
+   "scan": {
+    "high": 0,
+    "medium": 0,
+    "low": 2
+   }
+  },
+  {
+   "id": "monkeys-place",
+   "name": "Monkeys Place (Realm port)",
+   "trusted": true,
+   "author": "idiotthemodder",
+   "desc": "realm-plugin.js",
+   "game": [
+    "com.LuWiGames.MonkeysPlaceV2"
+   ],
+   "version": "975725ec8a3b",
+   "updated": "2026-11-22",
+   "files": [
+    {
+     "name": "realm-plugin.js",
+     "path": "official/monkeys-place/realm-plugin.js",
+     "sha256": "6d93b527317bf34d2ce69ba7c5fcc29482c7f713b5e55579c4d09fe695fbb131",
+     "size": 13649
+    }
+   ],
+   "scan": {
+    "high": 0,
+    "medium": 0,
+    "low": 0
+   }
+  },
+  {
+   "id": "scary-baboon",
+   "name": "Scary Baboon",
+   "trusted": true,
+   "author": "idiotthemodder",
+   "desc": "scary_baboon.js v1.5 - Scary Baboon plugin for the universal menu.",
+   "game": [
+    "com.BabTeam.Baboon"
+   ],
+   "version": "b19f8709bb67",
+   "updated": "2026-11-22",
+   "files": [
+    {
+     "name": "scary_baboon.js",
+     "path": "official/scary-baboon/scary_baboon.js",
+     "sha256": "5da48588d8a966f30b070231eb29f750e9274d8328dcdaabc198cef2420cd24c",
+     "size": 51520
+    }
+   ],
+   "scan": {
+    "high": 0,
+    "medium": 0,
+    "low": 1
+   }
+  },
+  {
+   "id": "stuff",
+   "name": "Stuff",
+   "trusted": true,
+   "author": "idiotthemodder",
+   "desc": "stuff.js v3 - Stuff (com.JusTeam.Stuff) plugin for the universal menu.",
+   "game": [
+    "com.JusTeam.Stuff"
+   ],
+   "version": "3add5c3dff08",
+   "updated": "2026-11-22",
+   "files": [
+    {
+     "name": "stuff.js",
+     "path": "official/stuff/stuff.js",
+     "sha256": "6f00569d27dcd151f8529d5a4b89cd32a31df53fc4a381016f0ad12928046207",
+     "size": 51429
+    }
+   ],
+   "scan": {
+    "high": 0,
+    "medium": 0,
+    "low": 0
+   }
+  },
+  {
+   "id": "stupid-chimp-slop",
+   "name": "Stupid Chimp Slop",
+   "trusted": true,
+   "author": "idiotthemodder",
+   "desc": "stupid_chimp_slop.js - Stupid Chimp Slop (XORWIRE) plugin for the universal menu (v1.0).",
+   "game": [
+    "com.XORWIRE.StupidChimpSlop"
+   ],
+   "version": "879208d84e4f",
+   "updated": "2026-11-22",
+   "files": [
+    {
+     "name": "stupid_chimp_slop.js",
+     "path": "official/stupid-chimp-slop/stupid_chimp_slop.js",
+     "sha256": "9d17754489479f9e841cd7f04bc9a13ea82ee9e426a0a6f357eccb9a234b54fc",
+     "size": 47136
+    }
+   ],
+   "scan": {
+    "high": 0,
+    "medium": 0,
+    "low": 1
+   }
+  }
+ ]
+}

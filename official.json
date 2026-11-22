@@ -1,0 +1,20 @@
+{
+  "_": "Official (trusted) store plugins. Files are copied from ~/Mods/imgui_plugins by `tools/store.py sync`. Remove an entry here + sync to take it out of the store.",
+  "author": "idiotthemodder",
+  "plugins": [
+    {"id": "buddy-beatdown", "name": "Buddy Beatdown", "files": [
+      "0_buddy_engine.js", "0_buddy_engine_thooms.js", "1_buddy_player.js", "2_buddy_combat.js", "3_buddy_visuals.js",
+      "4_buddy_world.js", "5_buddy_fun.js", "6_buddy_account.js", "7_buddy_dev.js"],
+     "desc": "Everything for Buddy Beatdown in one install: player + powers, combat, ESP / camera, world + lobby, fun / soundboard, account, dev tools."},
+    {"id": "animal-rails", "name": "Animal Rails", "files": ["animal_rails.js"]},
+    {"id": "animal-rails-identity", "name": "Animal Rails: Identity", "files": ["animal_rails_identity.js"]},
+    {"id": "animal-rails-nametags", "name": "Animal Rails: Nametags", "files": ["animal_rails_nametags.js"]},
+    {"id": "animal-rivals", "name": "Animal Rivals", "files": ["animal_rivals.js"]},
+    {"id": "big-scary", "name": "Big Scary", "files": ["big_scary.js"]},
+    {"id": "gandys-nextbots", "name": "Gandalf's Nextbots", "files": ["gandys_nextbots.js"]},
+    {"id": "monkeys-place", "name": "Monkeys Place (Realm port)", "files": ["realm-plugin.js"]},
+    {"id": "scary-baboon", "name": "Scary Baboon", "files": ["scary_baboon.js"]},
+    {"id": "stuff", "name": "Stuff", "files": ["stuff.js"]},
+    {"id": "stupid-chimp-slop", "name": "Stupid Chimp Slop", "files": ["stupid_chimp_slop.js"]}
+  ]
+}

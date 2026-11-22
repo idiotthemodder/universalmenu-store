@@ -1,0 +1,147 @@
+{
+ "_": "Pattern rules for the plugin safety scan. Used by tools/store.py and by the vrfrida app (it downloads this file with the store index). Regexes must work in both Python re and Java regex (no lookbehind, no named groups). sev: high | medium | low. own_game_ok: a hit is ignored when the line names one of the plugin's own games (its // game: line) or APP_ID.",
+ "version": 1,
+ "rules": [
+  {
+   "id": "net-java",
+   "sev": "high",
+   "label": "Opens its own internet connections (Java networking)",
+   "why": "Plugins almost never need this. It is how stolen data gets sent out.",
+   "re": "Java\\.use\\(\\s*['\"](java\\.net\\.|javax\\.net\\.|okhttp3\\.|com\\.android\\.okhttp|android\\.net\\.http)"
+  },
+  {
+   "id": "net-native",
+   "sev": "high",
+   "label": "Uses raw sockets (connect / send / socket)",
+   "why": "Low-level networking that skips the game. Common in data stealers.",
+   "re": "(ExportByName|findExportByName|getExportByName)\\([^)]*['\"](connect|socket|send|sendto|getaddrinfo|gethostbyname)['\"]"
+  },
+  {
+   "id": "net-frida",
+   "sev": "high",
+   "label": "Uses Frida's Socket API",
+   "why": "Lets the script talk to any server directly.",
+   "re": "\\b(Socket\\.(connect|listen)|SocketListener|SocketConnection)\\b"
+  },
+  {
+   "id": "net-web",
+   "sev": "medium",
+   "label": "Makes web requests (UnityWebRequest / WWW / fetch)",
+   "why": "Fine for loading pictures, but check WHERE it sends data and WHAT it sends.",
+   "re": "(UnityWebRequest|UnityEngine\\.WWW\\b|\\bfetch\\(|XMLHttpRequest|WebSocket\\b|HttpClient\\b)"
+  },
+  {
+   "id": "exfil-hosts",
+   "sev": "high",
+   "label": "Mentions a webhook / paste / file-drop service",
+   "why": "Discord webhooks, Telegram bots and paste sites are the usual places stolen tokens get sent.",
+   "re": "(discord(app)?\\.com/api/webhooks|api\\.telegram\\.org|pastebin\\.com|hastebin|transfer\\.sh|webhook\\.site|ngrok|requestbin|pipedream\\.net|anonfiles|file\\.io)"
+  },
+  {
+   "id": "raw-ip",
+   "sev": "medium",
+   "label": "Contains a raw IP address URL",
+   "why": "Real services use domain names; a bare IP is often a private collection server.",
+   "re": "https?://\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}"
+  },
+  {
+   "id": "exec",
+   "sev": "high",
+   "label": "Runs shell commands / other programs",
+   "why": "A game plugin has no reason to run commands on your headset.",
+   "re": "(Java\\.use\\(\\s*['\"]java\\.lang\\.(Runtime|ProcessBuilder)|getRuntime\\(\\)\\s*\\.\\s*exec|ExportByName\\([^)]*['\"](system|popen|execve|execv|execl|fork|posix_spawn)['\"]|['\"]/system/bin/(sh|su)['\"]|['\"]su['\"])"
+  },
+  {
+   "id": "dyn-code",
+   "sev": "high",
+   "label": "Runs code it builds or downloads at runtime (eval / new Function / Script.load)",
+   "why": "The code you read is not the code that runs. Can pull in anything later.",
+   "re": "(\\beval\\s*\\(|new\\s+Function\\s*\\(|\\bFunction\\s*\\(\\s*['\"]|Script\\.(load|evaluate)|Frida\\.load|\\bimportScripts\\b)"
+  },
+  {
+   "id": "accounts",
+   "sev": "high",
+   "label": "Reads accounts / auth tokens",
+   "why": "Can take over your Meta or game account.",
+   "re": "(android\\.accounts|AccountManager|getAuthToken|peekAuthToken|oculus\\.(platform|auth)|OVR\\w*AccessToken|com\\.oculus\\.horizon|access_?token|refresh_?token|SessionTicket|EntityToken)"
+  },
+  {
+   "id": "secrets",
+   "sev": "medium",
+   "label": "Touches login / session / password data",
+   "why": "Can be legit (e.g. reading your own player id), but check it never leaves the device.",
+   "re": "(password|passwd|\\bcookie|auth(entication)?Ticket|PlayFabSettings\\.\\w*Secret|DeveloperSecretKey|secretKey|apiKey)"
+  },
+  {
+   "id": "private-data",
+   "sev": "high",
+   "label": "Reads other apps' private folders",
+   "why": "/data/data and /data/user hold other apps' logins and saves. (Paths that name the plugin's own game are not counted.)",
+   "re": "(/data/data/|/data/user/|/data/misc/|shared_prefs|/sdcard/Android/data/)",
+   "own_game_ok": true
+  },
+  {
+   "id": "files-write",
+   "sev": "medium",
+   "label": "Writes or deletes files",
+   "why": "Settings files are normal; deleting or writing outside the game's folder is not.",
+   "re": "(File\\.writeAll(Text|Bytes)|new\\s+File\\s*\\(|Java\\.use\\(\\s*['\"]java\\.io\\.(File|FileOutputStream|FileWriter|RandomAccessFile)['\"]|ExportByName\\([^)]*['\"](fopen|open|unlink|remove|rename|rmdir)['\"]|System\\.IO\\.File|\\brm\\s+-rf?\\b)"
+  },
+  {
+   "id": "apps",
+   "sev": "medium",
+   "label": "Starts other apps / installs packages",
+   "why": "Can open pages, install apps or send intents outside the game.",
+   "re": "(startActivity|sendBroadcast|PackageInstaller|installPackage|Java\\.use\\(\\s*['\"]android\\.content\\.Intent['\"]|ACTION_VIEW)"
+  },
+  {
+   "id": "obf-hex",
+   "sev": "medium",
+   "label": "Looks obfuscated (_0x names)",
+   "why": "javascript-obfuscator output. Hidden code is a big red flag in a free plugin.",
+   "re": "\\b_0x[0-9a-fA-F]{4,6}\\b"
+  },
+  {
+   "id": "obf-escapes",
+   "sev": "medium",
+   "label": "Long runs of escaped characters (\\x.. / \\u....)",
+   "why": "Used to hide strings like URLs from people reading the code.",
+   "re": "(\\\\x[0-9a-fA-F]{2}){12,}|(\\\\u[0-9a-fA-F]{4}){8,}"
+  },
+  {
+   "id": "obf-blob",
+   "sev": "medium",
+   "label": "Huge encoded blob (base64 / hex) in a string",
+   "why": "Could be a picture, or hidden code that gets decoded and run.",
+   "re": "['\"`][A-Za-z0-9+/=]{400,}['\"`]|['\"`][0-9a-fA-F]{400,}['\"`]"
+  },
+  {
+   "id": "obf-charcode",
+   "sev": "low",
+   "label": "Builds strings from character codes / decodes base64",
+   "why": "Sometimes normal, sometimes used to hide URLs.",
+   "re": "(String\\.fromCharCode\\s*\\(\\s*\\d|\\batob\\s*\\(|Base64\\.decode)"
+  },
+  {
+   "id": "native-mem",
+   "sev": "low",
+   "label": "Writes native memory / patches code",
+   "why": "Normal for mods (that's how most cheats work). Listed so you know it's there.",
+   "re": "(Memory\\.(protect|patchCode|writeByteArray)|\\.writeByteArray\\(|Interceptor\\.replace)"
+  },
+  {
+   "id": "currency",
+   "sev": "low",
+   "label": "Touches currency / purchases",
+   "why": "Writing paid currency or faking purchases can get accounts banned.",
+   "re": "(?i)(purchase|receipt|\\biap\\b|premium ?currency|\\bgems?\\b|shiny ?rocks|add_?currency|grantcurrency|virtualcurrency)"
+  },
+  {
+   "id": "dos",
+   "sev": "low",
+   "label": "Mentions crash / lag-all / kick features",
+   "why": "Lobby-wide crash or lag features ruin games for everyone and get you banned.",
+   "re": "(?i)(crash ?all|lag ?all|crash ?lobby|crash ?player|kick ?all|lag ?server)"
+  }
+ ]
+}
