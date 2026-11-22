@@ -1,6 +1,6 @@
 {
  "v": 1,
- "generated": "2026-11-22T19:39:34Z",
+ "generated": "2026-11-22T20:56:44Z",
  "plugins": [
   {
    "id": "buddy-beatdown",
@@ -11,14 +11,14 @@
    "game": [
     "com.armoredpigstudios.beathimup"
    ],
-   "version": "5f8b79ffe0bd",
+   "version": "56e47039af9e",
    "updated": "2026-11-22",
    "files": [
     {
      "name": "0_buddy_engine.js",
      "path": "official/buddy-beatdown/0_buddy_engine.js",
-     "sha256": "4cffa3273d4e8a06653efd5b60ef963aa41edc82aee7550d4dc0e8000446141d",
-     "size": 187592
+     "sha256": "0e2b82d0b7666461dda9d3f986956d6acd6bc92bd120095dc0ff0970c6bd69fc",
+     "size": 188549
     },
     {
      "name": "0_buddy_engine_thooms.js",
@@ -84,14 +84,14 @@
    "game": [
     "com.mingkun.animalrails"
    ],
-   "version": "d05849469cd6",
+   "version": "c95cdbf4ecc8",
    "updated": "2026-11-22",
    "files": [
     {
      "name": "animal_rails.js",
      "path": "official/animal-rails/animal_rails.js",
-     "sha256": "57d6201ebaa2d478493eca693a0a51a6901cd91d00dda8e27be33d1ae694a87f",
-     "size": 21260
+     "sha256": "65195cf13f0afb70869638bd2afd7c31947d668b7054f2e5adbc64f2fa282a44",
+     "size": 29298
     }
    ],
    "scan": {
@@ -305,24 +305,24 @@
    "name": "Stupid Chimp Slop",
    "trusted": true,
    "author": "idiotthemodder",
-   "desc": "stupid_chimp_slop.js - Stupid Chimp Slop (XORWIRE) plugin for the universal menu (v1.0).",
+   "desc": "stupid_chimp_slop.js - Stupid Chimp Slop (XORWIRE) plugin for the universal menu (v1.2).",
    "game": [
     "com.XORWIRE.StupidChimpSlop"
    ],
-   "version": "879208d84e4f",
+   "version": "baad1f797c18",
    "updated": "2026-11-22",
    "files": [
     {
      "name": "stupid_chimp_slop.js",
      "path": "official/stupid-chimp-slop/stupid_chimp_slop.js",
-     "sha256": "9d17754489479f9e841cd7f04bc9a13ea82ee9e426a0a6f357eccb9a234b54fc",
-     "size": 47136
+     "sha256": "3c32b4e39f7cb3195054efa8fb157ae80afac4bb9d14d7673add77b55e1c7506",
+     "size": 82358
     }
    ],
    "scan": {
     "high": 0,
     "medium": 0,
-    "low": 1
+    "low": 2
    }
   },
   {

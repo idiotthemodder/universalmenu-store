@@ -1,7 +1,8 @@
 // animal_rails.js - Animal Rails (com.mingkun.animalrails) plugin for the universal Frida menu
 // game: com.mingkun.animalrails
 //
-// Trimmed version: train mods, the spawner, nights, building jump, and the info panel.
+// Train mods, the spawner, nights, building jump, the info panel, and the 0.3.27 additions
+// (third person camera, vampire flight boost, no hit-fall tilt, saloon duel status).
 // Everything goes through the game's own GM service (TrainGmRuntimeService), the part that worked.
 // Make sure the old animal_rails2.js is deleted from the headset so two copies don't fight.
 
@@ -28,6 +29,15 @@ var p = props([
 
     { type: "label", label: "SPAWNER" },
     { type: "int",   key: "spawnCount", label: "Spawn amount", min: 1, max: 20, default: 1 },
+
+    { type: "label", label: "NEW IN 0.3.27" },
+    { type: "bool",  key: "thirdPerson", label: "Third person camera", default: false, desc: "Uses the camera the game added for the vampire intro, held on forever. Only you see it" },
+    { type: "float", key: "tpDist",   label: "Camera distance (m)", min: 1, max: 8, default: 2.5, decimals: 1 },
+    { type: "float", key: "tpHeight", label: "Camera height (m)", min: 0, max: 3, default: 0.6, decimals: 1 },
+    { type: "bool",  key: "tpFront",  label: "Front view (face yourself)", default: false },
+    { type: "bool",  key: "vampBoost", label: "Vampire flight boost", default: false, desc: "Stronger flaps and a higher rise speed for the vampire profession. Only does anything while you are a vampire" },
+    { type: "float", key: "vampMult", label: "Flight boost amount", min: 1, max: 5, default: 2, decimals: 1 },
+    { type: "bool",  key: "noHitFall", label: "No hit fall camera tilt", default: false, desc: "Skips your own fall-over tilt when you get hit (saloon duels etc). Visual only, the knockback push still happens" },
 ]);
 
 // ---------------------------------------------------------------- helpers
@@ -221,10 +231,117 @@ function returnTick() {
     }
 }
 
+// ---------------------------------------------------------------- 0.3.27: third person camera
+// LocalPlayerRigRuntimeRoot.ThirdPerson is a LocalThirdPersonPresentation; TryPlay(owner, settings, out handle)
+// runs a "shot" for settings.duration seconds. We make our own ThirdPersonShotSettings with a huge duration.
+function rigRoot() {
+    try {
+        var k = K("AnimalRails.Player.LocalPlayerRigRuntimeRoot");
+        var f = k ? Il2Cpp.gc.choose(k) : [];
+        return f.length ? f[0] : null;
+    } catch (e) { return null; }
+}
+var tp = { view: null, req: 0, so: null, sig: "", next: 0 };
+function tpSig() { return p.tpDist.toFixed(1) + "/" + p.tpHeight.toFixed(1) + "/" + p.tpFront; }
+function tpSettings() {
+    // made fresh on every start: a scene change can unload an unreferenced ScriptableObject
+    var sk = Il2Cpp.domain.assembly("MingFrame").image.class("MingFrame.Presentation.ThirdPersonShotSettings");
+    var core = Il2Cpp.domain.assembly("UnityEngine.CoreModule").image;
+    var s = core.class("UnityEngine.ScriptableObject").method("CreateInstance", 1).overload("System.Type").invoke(sk.type.object);
+    tp.so = s;
+    s.field("duration").value = 1000000;
+    s.field("distance").value = p.tpDist;
+    s.field("height").value = p.tpHeight;
+    s.field("frontView").value = p.tpFront;
+    s.field("focusBelowTarget").value = 0;
+    s.field("collisionRadius").value = 0.15;
+    s.field("collisionPadding").value = 0.05;
+    s.field("minimumDistance").value = 0.4;
+    s.field("trackingAllowance").value = 1000;
+    return s;
+}
+function tpStart() {
+    var r = rigRoot();
+    if (!r) { notify("local player not found, load into the lobby or a match first"); return false; }
+    var v = r.method("get_ThirdPerson", 0).invoke();
+    if (!v || v.handle.isNull()) { notify("third person camera not set up yet"); return false; }
+    var loco = r.method("get_LocomotionPlayer", 0).invoke();
+    var owner = loco.method("get_transform", 0).invoke();
+    var h = Memory.alloc(16);
+    var ok = v.method("TryPlay", 3).invoke(owner, tpSettings(), h);
+    if (!ok) { log("third person: TryPlay refused (another shot playing?)"); return false; }
+    tp.view = v; tp.req = h.add(8).readU32(); tp.sig = tpSig();
+    log("third person on (request " + tp.req + ")");
+    return true;
+}
+function tpStop() {
+    try { if (tp.view && !tp.view.handle.isNull()) tp.view.method("Cancel", 1).invoke(tp.req); } catch (e) { log("third person stop: " + e); }
+    tp.view = null; tp.req = 0;
+}
+function tpActive() {
+    try { return tp.view && !tp.view.handle.isNull() && tp.view.method("IsActive", 1).invoke(tp.req); } catch (e) { return false; }
+}
+function tpTick() {
+    var now = Date.now();
+    if (!p.thirdPerson) { if (tp.view) tpStop(); return; }
+    if (now < tp.next) return;
+    tp.next = now + 600;
+    if (tpActive() && tp.sig === tpSig()) return;
+    if (tp.view) tpStop();               // settings changed or shot ended (scene change): restart
+    if (!tpStart()) tp.next = now + 3000;
+}
+
+// ---------------------------------------------------------------- 0.3.27: vampire flight boost
+// VampireFlightSettings is a ScriptableObject loaded from Resources; the flight motor reads its fields live.
+var VF_UP = ["liftVelocity", "liftAcceleration", "maximumRiseSpeed", "flapSupportSeconds"];
+var vamp = { orig: {}, applied: -1, next: 0 };
+function vampSet(mult) {
+    var k = K("AnimalRails.Professions.VampireFlightSettings");
+    if (!k) return 0;
+    var list = Il2Cpp.gc.choose(k);
+    list.forEach(function (s) {
+        var id = s.handle.toString();
+        if (!vamp.orig[id]) {
+            var o = {};
+            VF_UP.concat(["flapInterval"]).forEach(function (f) { o[f] = s.field(f).value; });
+            vamp.orig[id] = o;
+        }
+        var o2 = vamp.orig[id];
+        VF_UP.forEach(function (f) { s.field(f).value = o2[f] * mult; });
+        s.field("flapInterval").value = o2.flapInterval / mult;
+    });
+    return list.length;
+}
+function vampTick() {
+    var now = Date.now();
+    var want = p.vampBoost ? p.vampMult : 1;
+    if (want === vamp.applied && now < vamp.next) return;
+    if (want === 1 && vamp.applied <= 1) { vamp.applied = 1; return; }
+    vamp.next = now + 5000;              // re-check now and then in case the asset got reloaded
+    var n = vampSet(want);
+    if (vamp.applied !== want) log("vampire flight x" + want + " on " + n + " settings asset(s)");
+    vamp.applied = want;
+}
+
+// ---------------------------------------------------------------- 0.3.27: no hit-fall tilt (your own view only)
+// PlayerHitFallView.Begin(source, round, sequence, profile, cameraPitch): the camera pitch is only passed for you.
+Il2Cpp.perform(function () {
+    try {
+        var k = K("AnimalRails.Player.PlayerHitFallView");
+        if (!k) return;
+        k.method("Begin", 5).implementation = function (source, round, sequence, profile, cameraPitch) {
+            if (p.noHitFall && cameraPitch && !cameraPitch.handle.isNull()) return;
+            return this.method("Begin", 5).invoke(source, round, sequence, profile, cameraPitch);
+        };
+    } catch (e) { log("hit fall hook: " + e); }
+});
+
 onFrame(function () {
     try { applyToggles(); } catch (e) { log("toggles: " + e); }
     try { keepApplied(); } catch (e) {}
     try { returnTick(); } catch (e) { log("return: " + e); }
+    try { tpTick(); } catch (e) { log("third person: " + e); tp.next = Date.now() + 5000; }
+    try { vampTick(); } catch (e) { log("vampire: " + e); vamp.next = Date.now() + 10000; }
 });
 
 // ---------------------------------------------------------------- tab data
@@ -379,6 +496,28 @@ function jumpTime(clock, day) {
     notify(ok ? "time set to " + clock + " (day " + day + ")" : "time jump refused, check the clock format (HH:MM)");
 }
 
+// ---------------------------------------------------------------- 0.3.27: saloon duel status
+var DUEL_PHASE = ["waiting", "editing", "escrow", "preparing", "countdown", "fighting", "resolving", "result"];
+var DUEL_OUT = ["-", "victory", "draw", "player canceled", "system canceled"];
+var duel = { rules: null, next: 0, find: 0, line: "" };
+function readDuel() {
+    try {
+        var now = Date.now();
+        if ((!duel.rules || duel.rules.handle.isNull()) && now > duel.find) {
+            duel.find = now + 5000;
+            var k = K("AnimalRails.Lobby.SaloonDuel.SaloonDuelRules");
+            var f = k ? Il2Cpp.gc.choose(k) : [];
+            duel.rules = f.length ? f[0] : null;
+        }
+        var r = duel.rules;
+        if (!r) { duel.line = ""; return; }
+        var ph = Number(r.method("get_Phase", 0).invoke());
+        var out = Number(r.method("get_Outcome", 0).invoke());
+        duel.line = "phase: " + (DUEL_PHASE[ph] || ph) + "   confirmed: " + r.method("get_Confirmed", 0).invoke() +
+                    "   eliminated: " + r.method("get_Eliminated", 0).invoke() + (out ? "   outcome: " + (DUEL_OUT[out] || out) : "");
+    } catch (e) { duel.line = "duel read failed: " + e; duel.rules = null; }
+}
+
 // small picker row: label + prev/next buttons, returns new index
 function picker(ui, title, list, i, labelFn) {
     if (!list.length) return i;
@@ -464,6 +603,12 @@ tab(function (ui) {
     }
     if (ui.button("Refresh events")) { events = []; nextEv = 0; loadEvents(); }
 
+    // ---- saloon duel (new in 0.3.27), read only
+    ui.separator();
+    ui.text("SALOON DUEL (new lobby duel mode)");
+    if (now > duel.next) { duel.next = now + 1000; readDuel(); }
+    ui.text(duel.line || "no duel running");
+
     // ---- buildings
     ui.separator();
     ui.text("BUILDINGS (jump the train to one)");
@@ -490,6 +635,8 @@ onDisable(function () {
             if (last.freezeTime) svc.method("RequestSetTimePaused", 1).invoke(false);
         }
     } catch (e) {}
+    try { tpStop(); } catch (e) {}
+    try { if (vamp.applied > 1) vampSet(1); } catch (e) {}
 });
 
-log("animal rails (trimmed) loaded");
+log("animal rails (0.3.27) loaded");

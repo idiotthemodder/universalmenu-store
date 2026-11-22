@@ -3056,7 +3056,7 @@ function b11Clear() {
 // ---- mic soundboard: mix WAV samples into Normcore's outgoing voice ----
 // RealtimeAvatarVoice.GetMicrophoneAudioData(float[] frame) fills a frame from the mic, then SendMicrophoneData encodes it.
 // A passive hook adds our samples to the frame after the game fills it, so it goes out as your voice.
-var mic = { hook: null, pcm: null, rate: 24000, cur: 0, outRate: 48000, outCh: 1, files: [] };
+var mic = { hook: null, pcm: null, rate: 24000, cur: 0, outRate: 48000, outCh: 1, files: [], calls: 0, frames: 0 };
 function micRefresh() {
     try { if (typeof globalThis.__RASP_SOUNDBOARD_RELOAD === "function") globalThis.__RASP_SOUNDBOARD_RELOAD(); } catch (e) { }
     var sb = globalThis.__RASP_SOUNDBOARD, d = defOf("micSound");
@@ -3091,6 +3091,8 @@ function micHookOn() {
     mic.hook = Interceptor.attach(m.virtualAddress, {
         onEnter: function (args) { this.self = args[0]; this.arr = args[1]; },
         onLeave: function (ret) {
+            mic.calls++;
+            if ((ret.toInt32() & 0xff) !== 0) mic.frames++;
             if (!mic.pcm || (ret.toInt32() & 0xff) === 0 || this.arr.isNull()) return;
             try {
                 var n = this.arr.add(0x18).readU32(), data = this.arr.add(0x20);
@@ -3148,6 +3150,17 @@ function micPlay() {
     micHookOn();
     mic.rate = w.rate; mic.cur = 0; mic.pcm = w.pcm;
     if (p.micHear) { try { localPlay(w.pcm, w.rate); } catch (e) { log("mic: local playback failed: " + e); } }
+    // the sound only rides on real mic frames: if the game captures none, nobody else hears it. Say why.
+    var c0 = mic.calls, f0 = mic.frames;
+    setTimeout(function () {
+        if (mic.frames > f0) return;
+        var why = mic.calls === c0
+            ? "Voice chat isn't running (not in a lobby with voice?)"
+            : "The game gets no audio from your mic";
+        notify(why + ": others can't hear the sound. Allow the Microphone permission for this game (Quest Settings > Privacy > App permissions > Microphone; patching reinstalls the game, which resets it) and unmute in game");
+        log("mic: no mic frames in 2 s (calls " + (mic.calls - c0) + ")");
+    }, 2000);
+    if (p.micMuteReal) notify("Your real voice is muted until this sound ends" + (p.micLoop ? " (Loop is on: it never ends)" : "") + ". Press Stop to talk again");
     log("mic: playing " + f.fileName + " (" + (w.pcm.length / w.rate).toFixed(1) + "s at " + w.rate + " Hz)");
 }
 
