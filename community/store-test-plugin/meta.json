@@ -1,0 +1,10 @@
+{
+ "name": "store test plugin",
+ "author": "idiot",
+ "desc": "Store upload test: does nothing except show a label and one toggle. Safe to delete.",
+ "files": [
+  "c-store-test-plugin.js"
+ ],
+ "submission": "6abcc12dd131d51a",
+ "approved": "2026-11-22"
+}

@@ -1,6 +1,6 @@
 {
  "v": 1,
- "generated": "2026-11-22T00:17:01Z",
+ "generated": "2026-11-22T00:39:31Z",
  "plugins": [
   {
    "id": "buddy-beatdown",
@@ -323,6 +323,31 @@
     "high": 0,
     "medium": 0,
     "low": 1
+   }
+  },
+  {
+   "id": "store-test-plugin",
+   "name": "store test plugin",
+   "trusted": false,
+   "author": "idiot",
+   "desc": "Store upload test: does nothing except show a label and one toggle. Safe to delete.",
+   "game": [
+    "com.JusTeam.Stuff"
+   ],
+   "version": "919b73d4e10b",
+   "updated": "2026-11-22",
+   "files": [
+    {
+     "name": "c-store-test-plugin.js",
+     "path": "community/store-test-plugin/c-store-test-plugin.js",
+     "sha256": "84c91f0388bee5dcb1b70380adf797e408d5398dd917b8f9ed13e4b21c489875",
+     "size": 488
+    }
+   ],
+   "scan": {
+    "high": 0,
+    "medium": 0,
+    "low": 0
    }
   }
  ]
