@@ -1,10 +1,10 @@
 {
  "name": "dont blink",
  "author": "idiot",
- "desc": "dont_blink.js - Don't Blink (TripleC Games / Bmix) plugin for the universal menu (v1.0).",
+ "desc": "dont_blink.js - Don't Blink (TripleC Games / Bmix) plugin for the universal menu (v1.1).",
  "files": [
   "c-dont-blink.js"
  ],
- "submission": "be767f5b06808e7d",
+ "submission": "26888ad4bdcb6bc2",
  "approved": "2026-11-22"
 }

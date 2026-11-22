@@ -1,4 +1,4 @@
-// dont_blink.js - Don't Blink (TripleC Games / Bmix) plugin for the universal menu (v1.0).
+// dont_blink.js - Don't Blink (TripleC Games / Bmix) plugin for the universal menu (v1.1).
 // game: com.TripleCGames.DontBlinkByBmix
 // Built against the build installed 2026-11-21, dump in Dumps/com.TripleCGames.DontBlinkByBmix_dump.cs
 // (runtime dump, Assembly-CSharp is complete). Most method / field names are scrambled, so this only uses
@@ -25,7 +25,12 @@
 //              through your voice chat: the game's Photon Voice Recorder is switched to an AudioClip and
 //              back to the mic when the clip ends. Optional local playback so you hear it too.
 //   Spawner    network prefabs (asteroids, explosions, zombies, robot, ragdoll, sound props...) and the
-//              night crawler monster. Works in any room; capped at 25 live spawns.
+//              night crawler monster. Works in any room; capped at 25 live spawns (oldest recycled).
+//              Amount per spawn, 8 spots (in front / feet / above / ring / rain, or on a picked player),
+//              launch speed, gravity, keep-alive (stops the demo scripts deleting asteroids etc.),
+//              quick-spawn button, auto spawn (rain), spawn gun that shoots props from your hand,
+//              orbit / swarm / magnet your spawns, bring / blast / freeze, refresh list from Resources
+//   Extras     Listener (level 7) scream, explode cars
 //   Cosmetics  equip / unequip any of the game's 59 cosmetics (synced, others see it), equip all,
 //              rank badge picker, copy nearest player's outfit, unlock the wardrobe locally,
 //              RGB / set color, size, name
@@ -47,6 +52,12 @@ var RANKS = ["RankBronze", "RankSilver", "RankGold", "RankPlatinum", "RankDiamon
 var PREFABS = ["BigAsteroid", "SmallAsteroid", "TinyExplosion", "Spaceship", "My Robot Kyle -done-", "RAGDOILL", "Plunger", "boink", "fart", "vineboom", "getout", "Boy", "Character"];
 var MONSTERS = ["MonsterForDOntBLink", "Hellephant", "ZomBear", "ZomBunny"];
 var MONSTER_LABEL = { "MonsterForDOntBLink": "Night Crawler", "Hellephant": "Hellephant", "ZomBear": "ZomBear", "ZomBunny": "ZomBunny" };
+// -Local / -Remote are the voice demo's split prefabs and NetworkPlayer is a full player rig: spawning those
+// fights with your own rig, so Refresh Prefab List never adds them
+var PREFAB_SKIP = /-Local$|-Remote$|^NetworkPlayer$|^Player Controller$/;
+var SPAWN_WHERE = ["In Front", "At My Feet", "Above Me", "Ring Around Me", "Rain Around Me", "On Player", "Above Player", "Rain On Player"];
+var SPAWN_MODES = ["Normal", "Orbit Me", "Orbit Player", "Swarm Player", "Magnet [Left Grip]"];
+var SPAWN_BTNS = ["(none)"].concat(BTNS);
 // soundboard list: filled from the menu's sounds folder, mutated in place on reload (the combo reads it live)
 var SB_NAMES = [];
 var PL_NAMES = ["(nobody yet)"], PL_ACTORS = [-1], MAP_NAMES = ["(no maps yet)"];
@@ -81,6 +92,7 @@ var p = props([
     { type: "bool", key: "hideMons", label: "Hide Monster Models", default: false, desc: "only on your screen" },
     { type: "bool", key: "lureGun", label: "Lure Gun [G + T]", default: false, desc: "monsters go investigate where you shoot. works without being host" },
     { type: "button", label: "Lure Monsters Far Away", onClick: function () { try { lureFar(); } catch (e) { notify("Lure failed: " + e); } } },
+    { type: "button", label: "Make The Listener Scream", onClick: function () { try { listenerScream(); } catch (e) { notify("Scream failed: " + e); } }, desc: "Level 7 monster's attack scream, for everyone" },
 
     { type: "label", label: "Host Tools (you are master client)" },
     { type: "button", label: "Set Master", onClick: function () { try { setMaster(); } catch (e) { notify("Set Master failed: " + e); } } },
@@ -126,6 +138,7 @@ var p = props([
     { type: "label", label: "World" },
     { type: "bool", key: "noFog", label: "No Fog", default: false },
     { type: "bool", key: "fullbright", label: "Fullbright", default: false },
+    { type: "button", label: "Explode Cars", onClick: function () { try { explodeCars(); } catch (e) { notify("Explode failed: " + e); } }, desc: "the cars' own explosion (RPC_Explode). maps with cars only; if the game checks the sender it needs you to own the car" },
 
     { type: "label", label: "Players" },
     { type: "bool", key: "plEsp", label: "Player ESP", default: false },
@@ -152,12 +165,31 @@ var p = props([
 
     { type: "label", label: "Spawner (any room, max 25 at once)" },
     { type: "select", key: "prefab", label: "Prefab", options: PREFABS, default: "BigAsteroid" },
-    { type: "button", label: "Spawn Prefab", onClick: function () { try { spawnNet(p.prefab, false); } catch (e) { notify("Spawn failed: " + e); } } },
     { type: "select", key: "monPrefab", label: "Monster", options: MONSTERS, default: "MonsterForDOntBLink" },
-    { type: "button", label: "Spawn Monster", onClick: function () { try { spawnNet(p.monPrefab, true); } catch (e) { notify("Spawn failed: " + e); } } },
-    { type: "bool", key: "spawnGun", label: "Spawn Gun [G + T]", default: false, desc: "fires the selected prefab where you point (monster if Spawn Gun: Monster is on)" },
-    { type: "bool", key: "spawnGunMon", label: "Spawn Gun: Monster", default: false },
+    { type: "bool", key: "spMon", label: "Use The Monster Pick", default: false, desc: "Spawn / Quick Spawn / Auto Spawn / Spawn Gun all spawn the Monster pick instead of the Prefab" },
+    { type: "select", key: "spWhere", label: "Spawn Where", options: SPAWN_WHERE, default: "In Front" },
+    { type: "select", key: "spTarget", label: "Target Player", options: PL_NAMES, default: PL_NAMES[0], desc: "for the Player spots and Orbit / Swarm Player. list refreshes every few seconds" },
+    { type: "float", key: "spCount", label: "Amount Per Spawn", min: 1, max: 10, default: 1, decimals: 0 },
+    { type: "float", key: "spLaunch", label: "Launch Speed", min: 0, max: 40, default: 0, decimals: 0, desc: "throws props the way you look (straight down for the Above / Rain spots). asteroids + spaceship sync it for everyone" },
+    { type: "bool", key: "spKeep", label: "Keep Spawns Alive", default: true, desc: "stops asteroids / spaceship / ragdoll / plunger deleting themselves or drifting off" },
+    { type: "bool", key: "spGravity", label: "Spawns Fall", default: true, desc: "off = props float where they spawn" },
+    { type: "bool", key: "spSpin", label: "Random Rotation", default: true },
+    { type: "button", label: "Spawn", onClick: function () { try { spawnNow(false); } catch (e) { notify("Spawn failed: " + e); } } },
+    { type: "button", label: "Spawn Monster", onClick: function () { try { spawnNow(true); } catch (e) { notify("Spawn failed: " + e); } } },
+    { type: "select", key: "spBtn", label: "Quick Spawn Button", options: SPAWN_BTNS, default: "(none)", desc: "spawns with these settings without opening the menu" },
+    { type: "bool", key: "spAuto", label: "Auto Spawn (repeat)", default: false, desc: "with a Rain spot this makes it rain. keeps going at the limit if Recycle is on" },
+    { type: "float", key: "spEvery", label: "Auto Spawn Every (s)", min: 0.25, max: 5, default: 1, decimals: 2 },
+    { type: "bool", key: "spawnGun", label: "Spawn Gun [G + T]", default: false },
+    { type: "select", key: "spGunStyle", label: "Spawn Gun Style", options: ["Where I Point", "Shoot From Hand"], default: "Where I Point", desc: "Shoot From Hand fires props out of your hand, hold the trigger for auto fire" },
+    { type: "select", key: "spMode", label: "My Spawns Do", options: SPAWN_MODES, default: "Normal", desc: "moves your props that have physics (asteroids, spaceship, robot, plunger). everyone sees it" },
+    { type: "float", key: "spLimit", label: "Spawn Limit", min: 5, max: 25, default: 25, decimals: 0 },
+    { type: "bool", key: "spRecycle", label: "Recycle Oldest At Limit", default: true, desc: "at the limit the oldest spawn gets deleted instead of spawning stopping" },
+    { type: "button", label: "Bring My Spawns", onClick: function () { try { spBring(); } catch (e) { notify("Failed: " + e); } } },
+    { type: "button", label: "Blast My Spawns Away", onClick: function () { try { spBlast(); } catch (e) { notify("Failed: " + e); } } },
+    { type: "button", label: "Freeze / Unfreeze My Spawns", onClick: function () { try { spFreeze(); } catch (e) { notify("Failed: " + e); } } },
     { type: "button", label: "Check If Networked", onClick: function () { try { checkSpawns(); } catch (e) { notify("Check failed: " + e); } } },
+    { type: "button", label: "Refresh Prefab List", onClick: function () { try { refreshPrefabs(); } catch (e) { notify("Refresh failed: " + e); } } },
+    { type: "button", label: "Delete Last Spawn", onClick: function () { try { spDeleteLast(); } catch (e) { notify("Delete failed: " + e); } } },
     { type: "button", label: "Delete My Spawns", onClick: function () { try { clearSpawns(); } catch (e) { notify("Delete failed: " + e); } } },
 
     { type: "label", label: "Your Player (sent through the game's own sync, everyone sees it)" },
@@ -651,7 +683,7 @@ function teleportTo(target) {
     try { G.rb.method("set_position").invoke(target); G.rb.method("set_velocity").invoke([0, 0, 0]); } catch (e) {}
 }
 // one gun pointer shared by the teleport gun and the lure gun
-var gun = { line: null, dot: null, prevTrig: false, color: "" };
+var gun = { line: null, dot: null, prevTrig: false, color: "", fireAt: 0 };
 function gunHide() { if (gun.line) setActive(gun.line.go, false); if (gun.dot) setActive(gun.dot.go, false); }
 function gunClear() { if (gun.line) destroyNow(gun.line.go); if (gun.dot) destroyNow(gun.dot.go); gun.line = gun.dot = null; }
 function gunStep() {
@@ -665,6 +697,7 @@ function gunStep() {
         if (target) hit = { point: target.hp, normal: [0, 1, 0], dist: target.along };
         else if (!hit) hit = { point: add3(from, mul3(dir, 30)), normal: [0, 1, 0], dist: 30 };
     }
+    if (!hit && mode === "spawn" && p.spGunStyle === "Shoot From Hand") hit = { point: add3(from, mul3(dir, 30)), normal: [0, 1, 0], dist: 30 };
     if (!hit) { gunHide(); return; }
     var c = mode === "tp" ? [0.7, 0.45, 1] : (mode === "kill" ? [0.15, 0.15, 0.15] : mode === "gore" ? [0.8, 0.05, 0.05] : (mode === "spawn" ? [0.3, 1, 0.45] : [1, 0.55, 0.15]));
     if (gun.color !== mode) { gunClear(); gun.color = mode; }
@@ -681,8 +714,12 @@ function gunStep() {
         if (mode === "tp") teleportTo(add3(hit.point, add3(mul3(hit.normal, 0.4), [0, 0.9, 0])));
         else if (mode === "kill") { if (target) safe("killgun", function () { hostKill(actorOfRig(target.r)); }); else notify("Point at a player"); }
         else if (mode === "gore") { if (target) safe("goregun", function () { goreRig(target.r, true); }); else notify("Point at a player"); }
-        else if (mode === "spawn") safe("spawngun", function () { spawnNet(p.spawnGunMon ? p.monPrefab : p.prefab, !!p.spawnGunMon, add3(hit.point, mul3(hit.normal, 0.5))); });
+        else if (mode === "spawn") { gun.fireAt = now(); safe("spawngun", function () { spawnGunFire(hit, from, dir); }); }
         else lureTo(hit.point, true);
+    } else if (trig && mode === "spawn" && p.spGunStyle === "Shoot From Hand" && now() - gun.fireAt > 250) {
+        // held trigger = auto fire (still bounded by the spawn limit)
+        gun.fireAt = now();
+        safe("spawngun", function () { spawnGunFire(hit, from, dir); });
     }
     gun.prevTrig = trig;
 }
@@ -1255,50 +1292,283 @@ function sbStep() {
 // ------------------------------------------------------------------------------------------
 // spawner: PhotonNetwork.Instantiate (props, owned by you) / InstantiateRoomObject (monsters, owned by
 // the room, master only; otherwise monsters are spawned as yours). Capped so it can't flood the lobby.
+// Asteroids + Spaceship carry a PhotonRigidbodyView, so anything done to their Rigidbody on your side
+// (launch, gravity, orbit) is what everyone sees. Their demo scripts (and the ragdoll's / plunger's) delete
+// or steer them on their own, so Keep Spawns Alive switches those scripts off on your copies.
 // ------------------------------------------------------------------------------------------
-var spawned = [], spawnAt = 0, SPAWN_CAP = 25;
-function spawnNet(name, monster, at) {
-    if (!init()) { notify("Not loaded yet"); return; }
-    if (!inRoom()) { notify("Join a room first"); return; }
-    spawned = spawned.filter(alive);
-    if (spawned.length >= SPAWN_CAP) { notify("Spawn limit (" + SPAWN_CAP + "), use Delete My Spawns"); return; }
-    var roomObj = monster && isMaster();
-    if (now() - spawnAt < 250) return;
+var spawned = [], spawnAt = 0, SPAWN_CAP = 25;   // entries: { go, name, rb, frozen, t }
+var KEEP_ALIVE = { Asteroid: 1, Spaceship: 1, disapear: 1, GrappleProjectile: 1 };
+function pvClass() { return img("PhotonUnityNetworking").class("Photon.Pun.PhotonView"); }
+function rbClass() { return physics().class("UnityEngine.Rigidbody"); }
+function spLimit() { return Math.max(1, Math.min(SPAWN_CAP, Math.round(Number(p.spLimit) || SPAWN_CAP))); }
+function spPrune() { spawned = spawned.filter(function (s) { return alive(s.go); }); return spawned; }
+function spLabel(name) { return MONSTER_LABEL[name] || name; }
+function pnDestroy(go) {
+    if (!G.pnDestroy) G.pnDestroy = photon().methods.filter(function (x) { return x.name === "Destroy" && x.parameterCount === 1 && x.parameters[0].type.name === "UnityEngine.GameObject"; })[0];
+    try { G.pnDestroy.invoke(go); return true; } catch (e) { destroyNow(go); return false; }
+}
+function spDelete(s) { if (s && alive(s.go)) pnDestroy(s.go); }
+function spInst(roomObj) {
+    var k = roomObj ? "spInstRoom" : "spInst";
+    if (!G[k]) G[k] = photon().methods.filter(function (x) { return x.name === (roomObj ? "InstantiateRoomObject" : "Instantiate") && x.parameterCount === 5 && x.parameters[0].type.name === "System.String"; })[0];
+    if (!G[k]) throw new Error("no PhotonNetwork." + (roomObj ? "InstantiateRoomObject" : "Instantiate"));
+    return G[k];
+}
+function compsOf(go) {
+    var Comp = core().class("UnityEngine.Component");
+    return arrItems(pickM(go, G.GameObject, "GetComponents", 1, function (ps) { return ps[0].type.name === "System.Type"; }).invoke(Comp.type.object));
+}
+function spTargetRig() {
+    var a = PL_ACTORS[PL_NAMES.indexOf(p.spTarget)];
+    if (!(a > 0)) return null;
+    return otherRigs().filter(function (r) { return actorOfRig(r) === a; })[0] || null;
+}
+function flatDir(d) { var f = [d[0], 0, d[2]], l = len3(f); return l > 0.01 ? mul3(f, 1 / l) : [0, 0, 1]; }
+function rndDisc(r) { var a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * r; return [Math.cos(a) * d, 0, Math.sin(a) * d]; }
+// where each of the n spawns goes, plus which way a launch throws them
+function spSpots(n, monster) {
+    var head = pos3(G.head), fwd = fwdOf(G.head), feet = add3(pos3(G.body), [0, -0.35, 0]);
+    var where = p.spWhere, tgt = null, out = [], down = false, spread = n > 1 ? 0.7 : 0;
+    if (where.indexOf("Player") >= 0) {
+        var r = spTargetRig();
+        if (!r) throw new Error("pick a Target Player first");
+        tgt = rigHead(r);
+        if (!tgt) throw new Error("couldn't find " + p.spTarget);
+    }
+    for (var i = 0; i < n; i++) {
+        var off = rndDisc(spread), at;
+        switch (where) {
+            case "At My Feet": at = add3(feet, off); break;
+            case "Above Me": at = add3(head, add3([0, 3, 0], off)); down = true; break;
+            case "Ring Around Me": { var a = (i / n) * Math.PI * 2 + Math.atan2(fwd[2], fwd[0]); at = add3(head, [Math.cos(a) * 2.5, -0.3, Math.sin(a) * 2.5]); break; }
+            case "Rain Around Me": at = add3(head, add3([0, 8, 0], rndDisc(7))); down = true; break;
+            case "On Player": at = add3(tgt, add3([0, -0.4, 0], off)); break;
+            case "Above Player": at = add3(tgt, add3([0, 3, 0], off)); down = true; break;
+            case "Rain On Player": at = add3(tgt, add3([0, 8, 0], rndDisc(3))); down = true; break;
+            default: at = add3(head, add3(mul3(flatDir(fwd), monster ? 4 : 2), off));
+        }
+        out.push(at);
+    }
+    return { spots: out, down: down, dir: fwd, face: head };
+}
+function spLaunchVel(sp) {
+    var v = Number(p.spLaunch) || 0;
+    if (!v) return null;
+    return sp.down ? [0, -v, 0] : mul3(sp.dir, v);
+}
+// after Instantiate: Awake / OnEnable have run on the spawn, Start / Update haven't yet
+function spSetup(s, vel) {
+    if (p.spKeep) safe("spkeep", function () {
+        compsOf(s.go).forEach(function (c) { if (KEEP_ALIVE[c.class.name]) setEnabled(c, false); });
+    });
+    s.rb = opt(function () { return getComp(s.go, rbClass()); }, null);
+    if (!s.rb) return;
+    safe("sprb", function () {
+        if (s.rb.method("get_isKinematic").invoke()) return;
+        s.rb.method("set_useGravity").invoke(!!p.spGravity);
+        // the asteroid demo gives every asteroid a random drift; zero it unless we're throwing it
+        if (vel || p.spKeep) s.rb.method("set_velocity").invoke(vel || [0, 0, 0]);
+        if (p.spSpin) s.rb.method("set_angularVelocity").invoke([Math.random() * 4 - 2, Math.random() * 4 - 2, Math.random() * 4 - 2]);
+    });
+}
+// one spawn, no checks beyond the limit. returns { s } or { err }
+function spawnOne(name, monster, at, vel, faceTo) {
+    spPrune();
+    var lim = spLimit();
+    while (spawned.length >= lim) {
+        if (!p.spRecycle) return { err: "Spawn limit (" + lim + "), use Delete My Spawns" };
+        spDelete(spawned.shift());
+    }
+    var roomObj = monster && isMaster(), rot;
+    if (monster && faceTo) rot = lookRot(flatDir(sub3(faceTo, at)));
+    else if (p.spSpin && !monster) rot = G.Quaternion.method("Euler", 3).invoke(Math.random() * 360, Math.random() * 360, Math.random() * 360);
+    else rot = G.Quaternion.method("get_identity").invoke();
+    var go = spInst(roomObj).invoke(Il2Cpp.string(name), at, rot, 0, NULL);
+    if (!go || go.isNull()) return { err: "Spawn returned nothing" };
+    var s = { go: go, name: name, rb: null, frozen: false, t: now() };
+    spawned.push(s);
+    spSetup(s, monster ? null : vel);
+    if (monster) monScanAt = 0;
+    return { s: s };
+}
+function spawnReady() {
+    if (!init()) { notify("Not loaded yet"); return false; }
+    if (!inRoom()) { notify("Join a room first"); return false; }
+    return true;
+}
+// the Spawn / Spawn Monster buttons, Quick Spawn and Auto Spawn
+function spawnNow(forceMon, quiet) {
+    if (!spawnReady()) return;
+    if (now() - spawnAt < 200) return;
     spawnAt = now();
-    if (!at) at = add3(pos3(G.head), mul3(fwdOf(G.head), monster ? 4 : 1.5));
-    var rot = G.Quaternion.method("get_identity").invoke(), PN = photon();
-    var m = PN.methods.filter(function (x) { return x.name === (roomObj ? "InstantiateRoomObject" : "Instantiate") && x.parameterCount === 5 && x.parameters[0].type.name === "System.String"; })[0];
-    if (!m) throw new Error("no PhotonNetwork." + (roomObj ? "InstantiateRoomObject" : "Instantiate"));
-    var go = m.invoke(Il2Cpp.string(name), at, rot, 0, NULL);
-    if (go && !go.isNull()) { spawned.push(go); var ni = spawnNetInfo(go); notify("Spawned " + (MONSTER_LABEL[name] || name) + (ni.id > 0 ? " (networked, view " + ni.id + ")" : " (LOCAL ONLY, not networked)")); monScanAt = 0; }
-    else notify("Spawn returned nothing");
+    var mon = forceMon || !!p.spMon, name = mon ? p.monPrefab : p.prefab;
+    var n = Math.max(1, Math.min(10, Math.round(Number(p.spCount) || 1)));
+    var sp = spSpots(n, mon), ok = 0, last = null, err = "";
+    sp.spots.forEach(function (at) {
+        var r = spawnOne(name, mon, at, spLaunchVel(sp), sp.face);
+        if (r.s) { ok++; last = r.s; } else err = r.err;
+    });
+    if (quiet) return;
+    if (!ok) { notify(err || "Nothing spawned"); return; }
+    var ni = spawnNetInfo(last.go);
+    notify("Spawned " + (ok > 1 ? ok + "x " : "") + spLabel(name) + (ni.id > 0 ? " (networked)" : " (LOCAL ONLY, not networked)") + (err ? ", " + err : ""));
+}
+function spawnGunFire(hit, from, dir) {
+    if (!spawnReady()) return;
+    var mon = !!p.spMon, name = mon ? p.monPrefab : p.prefab, r;
+    if (p.spGunStyle === "Shoot From Hand" && !mon) r = spawnOne(name, false, add3(from, mul3(dir, 0.7)), mul3(dir, Math.max(15, Number(p.spLaunch) || 0)));
+    else r = spawnOne(name, mon, add3(hit.point, mul3(hit.normal, mon ? 0.1 : 0.5)), spLaunchVel({ down: false, dir: dir }), pos3(G.head));
+    if (r.err) notify(r.err);
+}
+var spAuto = { at: 0, btnPrev: false };
+function spAutoStep() {
+    if (p.spBtn !== "(none)") {
+        var h = btnHeld(p.spBtn);
+        if (h && !spAuto.btnPrev) { spawnAt = 0; spawnNow(false, false); }
+        spAuto.btnPrev = h;
+    }
+    if (!p.spAuto || !inRoom()) return;
+    var t = now();
+    if (t - spAuto.at < Math.max(0.25, Number(p.spEvery) || 1) * 1000) return;
+    spAuto.at = t;
+    spawnAt = 0;
+    spawnNow(false, true);
+}
+// orbit / swarm / magnet: steer each physics spawn by velocity, so the rigidbody view syncs it
+var spMove = { ang: 0 };
+function spMoveTo(s, want, dt, gain) {
+    var cur = pos3(s.go), d = sub3(want, cur);
+    if (opt(function () { return !!s.rb.method("get_isKinematic").invoke(); }, true)) {
+        tr(s.go).method("set_position").invoke(add3(cur, mul3(d, Math.min(1, dt * gain))));
+        return;
+    }
+    var v = mul3(d, gain), l = len3(v);
+    if (l > 35) v = mul3(v, 35 / l);
+    s.rb.method("set_velocity").invoke(v);
+}
+function spModeStep(dt) {
+    if (p.spMode === "Normal" || !spawned.length) return;
+    var center = null, radius = 2.5, speed = 1.5, swarm = p.spMode === "Swarm Player";
+    if (p.spMode === "Orbit Me") center = add3(pos3(G.head), [0, -0.3, 0]);
+    else if (p.spMode === "Magnet [Left Grip]") { if (!input.grip(0)) return; center = add3(pos3(G.lh), mul3(fwdOf(G.lh), 0.5)); radius = 0.45; speed = 3; }
+    else { var r = spTargetRig(); if (!r) return; center = rigHead(r); if (!center) return; if (swarm) { radius = 0.8; speed = 4; } }
+    spMove.ang += dt * speed;
+    var list = spPrune().filter(function (s) { return s.rb && !s.frozen && alive(s.rb); });
+    list.forEach(function (s, i) {
+        var a = spMove.ang + (i / list.length) * Math.PI * 2;
+        var bob = swarm ? Math.sin(spMove.ang * 2 + i) * 0.6 : Math.sin(spMove.ang + i) * 0.25;
+        safe("spmove", function () { spMoveTo(s, add3(center, [Math.cos(a) * radius, bob, Math.sin(a) * radius]), dt, swarm ? 9 : 6); });
+    });
+}
+function spBring() {
+    if (!spawnReady()) return;
+    var list = spPrune(), head = pos3(G.head), fwd = flatDir(fwdOf(G.head));
+    if (!list.length) { notify("No spawns out"); return; }
+    list.forEach(function (s, i) {
+        var a = (i / list.length) * Math.PI * 2, at = add3(add3(head, mul3(fwd, 2.5)), [Math.cos(a) * 1.2, 0, Math.sin(a) * 1.2]);
+        safe("spbring", function () {
+            tr(s.go).method("set_position").invoke(at);
+            if (s.rb && alive(s.rb)) { s.rb.method("set_position").invoke(at); if (!s.rb.method("get_isKinematic").invoke()) s.rb.method("set_velocity").invoke([0, 0, 0]); }
+        });
+    });
+    notify("Brought " + list.length + " spawn(s)");
+}
+function spBlast() {
+    if (!spawnReady()) return;
+    var head = pos3(G.head), n = 0;
+    spPrune().forEach(function (s) {
+        if (!s.rb || s.frozen || !alive(s.rb)) return;
+        safe("spblast", function () {
+            if (s.rb.method("get_isKinematic").invoke()) return;
+            var d = sub3(pos3(s.go), head), l = len3(d) || 1;
+            s.rb.method("set_velocity").invoke(add3(mul3(d, 28 / l), [0, 6, 0]));
+            n++;
+        });
+    });
+    notify(n ? "Blasted " + n + " spawn(s)" : "Nothing with physics to blast");
+}
+function spFreeze() {
+    var list = spPrune().filter(function (s) { return s.rb && alive(s.rb); });
+    if (!list.length) { notify("No physics spawns out"); return; }
+    var freeze = list.some(function (s) { return !s.frozen; }), n = 0;
+    list.forEach(function (s) {
+        safe("spfreeze", function () {
+            if (freeze && !s.frozen) {
+                s.wasKin = !!s.rb.method("get_isKinematic").invoke();
+                if (!s.wasKin) s.rb.method("set_velocity").invoke([0, 0, 0]);
+                s.rb.method("set_isKinematic").invoke(true); s.frozen = true; n++;
+            } else if (!freeze && s.frozen) {
+                s.rb.method("set_isKinematic").invoke(!!s.wasKin); s.frozen = false; n++;
+            }
+        });
+    });
+    notify((freeze ? "Froze " : "Unfroze ") + n + " spawn(s)");
+}
+function spDeleteLast() {
+    var s = spPrune().pop();
+    if (!s) { notify("No spawns out"); return; }
+    spDelete(s);
+    notify("Deleted " + spLabel(s.name));
 }
 // a spawn is networked when Photon gave its PhotonView a ViewID: that means the instantiate event went
 // out to the room, and everyone else's client builds the same prefab from it
 function spawnNetInfo(go) {
-    var pv = opt(function () { return getComp(go, img("PhotonUnityNetworking").class("Photon.Pun.PhotonView")); }, null);
+    var pv = opt(function () { return getComp(go, pvClass()); }, null);
     if (!pv || pv.isNull()) return { id: 0, owner: 0 };
     return { id: Number(opt(function () { return pv.method("get_ViewID").invoke(); }, 0)), owner: Number(opt(function () { return pv.method("get_OwnerActorNr").invoke(); }, 0)) };
 }
 function checkSpawns() {
-    spawned = spawned.filter(alive);
-    if (!spawned.length) { notify("No spawns out"); return; }
+    var list = spPrune();
+    if (!list.length) { notify("No spawns out"); return; }
     var net = 0, others = opt(function () { return Number(photon().method("get_CurrentRoom").invoke().method("get_PlayerCount").invoke()) - 1; }, 0);
-    spawned.forEach(function (go) {
-        var ni = spawnNetInfo(go);
+    list.forEach(function (s) {
+        var ni = spawnNetInfo(s.go);
         if (ni.id > 0) net++;
-        log("spawn " + opt(function () { return cstr(go.method("get_name").invoke()); }, "?") + " view=" + ni.id + " owner=" + ni.owner);
+        log("spawn " + s.name + " view=" + ni.id + " owner=" + ni.owner + (s.rb ? " rb" : "") + (s.frozen ? " frozen" : ""));
     });
-    notify(net + "/" + spawned.length + " spawns networked" + (net ? ", sent to " + others + " other player(s)" : ""));
+    notify(net + "/" + list.length + " spawns networked" + (net ? ", sent to " + others + " other player(s)" : ""));
 }
 function clearSpawns() {
     var n = 0;
-    spawned.forEach(function (go) {
-        if (!alive(go)) return;
-        try { photon().methods.filter(function (x) { return x.name === "Destroy" && x.parameterCount === 1 && x.parameters[0].type.name === "UnityEngine.GameObject"; })[0].invoke(go); n++; } catch (e) { destroyNow(go); }
-    });
+    spawned.forEach(function (s) { if (alive(s.go)) { pnDestroy(s.go); n++; } });
     spawned = [];
     notify("Deleted " + n + " spawn(s)");
+}
+// Resources prefabs with a PhotonView, for when a game update adds new ones. Mutates the combo lists in place.
+function refreshPrefabs() {
+    if (!init()) { notify("Not loaded yet"); return; }
+    var R = core().class("UnityEngine.Resources");
+    var m = R.methods.filter(function (x) { return x.name === "LoadAll" && x.parameterCount === 2 && x.parameters[1].type.name === "System.Type"; })[0];
+    if (!m) throw new Error("no Resources.LoadAll(string, Type)");
+    var gos = arrItems(m.invoke(Il2Cpp.string(""), G.GameObject.type.object)), PVC = pvClass(), added = [], total = 0;
+    var nav = opt(function () { return img("UnityEngine.AIModule").class("UnityEngine.AI.NavMeshAgent"); }, null);
+    gos.forEach(function (go) {
+        var g = new Il2Cpp.Object(go.handle), name = cstr(g.method("get_name").invoke());
+        if (!name || PREFAB_SKIP.test(name) || !getComp(g, PVC)) return;
+        total++;
+        if (PREFABS.indexOf(name) >= 0 || MONSTERS.indexOf(name) >= 0) return;
+        if (nav && getComp(g, nav)) MONSTERS.push(name); else PREFABS.push(name);
+        added.push(name);
+    });
+    notify(added.length ? "Added " + added.length + ": " + added.join(", ") : "Prefab list is up to date (" + total + " networked prefabs)");
+}
+
+// ------------------------------------------------------------------------------------------
+// extras: Level 7 Listener scream, car explosions
+// ------------------------------------------------------------------------------------------
+function listenerScream() {
+    monScanAt = 0; monScan();
+    var n = 0;
+    mons.forEach(function (m) { if (m.o.class.name !== "Level7Monster") return; rpc(pvOf(m.o), "RPC_L7Scream", RPC_ALL, []); n++; });
+    notify(n ? "Listener screamed" : "No Listener in this level (Level 7)");
+}
+function explodeCars() {
+    var k = cls("CarManager");
+    var cars = k ? findObjs(k) : [];
+    if (!cars.length) { notify("No cars in this level"); return; }
+    var n = 0;
+    cars.forEach(function (c) { safe("explodecar", function () { rpc(pvOf(c), "RPC_Explode", RPC_ALL, [{ v3: pos3(c) }]); n++; }); });
+    notify("Exploded " + n + " car(s)");
 }
 
 // ------------------------------------------------------------------------------------------
@@ -1458,6 +1728,7 @@ function refreshHostLists() {
     PL_NAMES.length = 0; PL_ACTORS.length = 0;
     names.forEach(function (n, i) { PL_NAMES.push(n); PL_ACTORS.push(acts[i]); });
     if (PL_NAMES.indexOf(keep) < 0) p.hTarget = PL_NAMES[0];
+    if (PL_NAMES.indexOf(p.spTarget) < 0) p.spTarget = PL_NAMES[0];
     var mv = opt(function () { return cls("MapVoteManager").field("Instance").value; }, null), maps = [];
     if (mv && alive(mv)) { var arr = opt(function () { return mv.field("mapNames").value; }, null); for (var i = 0; arr && i < arr.length; i++) maps.push(cstr(arr.get(i)) || ("Map " + (i + 1))); }
     if (maps.length) { var km = p.hMap; MAP_NAMES.length = 0; maps.forEach(function (m) { MAP_NAMES.push(m); }); if (MAP_NAMES.indexOf(km) < 0) p.hMap = MAP_NAMES[0]; }
@@ -1560,6 +1831,8 @@ onFrame(function () {
     safe("gore", goreStep);
     safe("sound", sbStep);
     safe("color", colorStep);
+    safe("spauto", spAutoStep);
+    safe("spmode", function () { spModeStep(dt); });
 });
 
 onDisable(function () {
@@ -1594,5 +1867,7 @@ tab(function (ui) {
     if (cosmQ.list.length) ui.text("cosmetics queued: " + cosmQ.list.length);
     ui.text("soundboard: " + sbSounds.length + " sound(s)" + (sb.playing ? ", playing " + Math.max(0, (sb.endAt - now()) / 1000).toFixed(1) + "s left" : "") + (sb.hookTried ? (sb.hooked ? ", mic mixer on (" + sb.frames + " frames, " + sb.voiceRate + " Hz)" : ", mic mixer failed: " + sb.lastErr) : ""));
     if (!sbSounds.length) ui.text("  no sounds: put files in Mods/sounds, run vrfrida, then Reload Sounds");
-    ui.text("spawner: " + spawned.filter(alive).length + "/" + SPAWN_CAP + " spawned" + (isMaster() ? " (master)" : ""));
+    var sl = spawned.filter(function (s) { return alive(s.go); });
+    ui.text("spawner: " + sl.length + "/" + spLimit() + " spawned" + (isMaster() ? " (master)" : "") + (p.spAuto ? ", auto every " + Number(p.spEvery).toFixed(2) + "s" : "") + (p.spMode !== "Normal" ? ", " + p.spMode.replace(/ \[.*\]/, "").toLowerCase() : ""));
+    if (sl.length) { var by = {}; sl.forEach(function (s) { by[spLabel(s.name)] = (by[spLabel(s.name)] || 0) + 1; }); ui.text("  " + Object.keys(by).map(function (k) { return by[k] + "x " + k; }).join(", ")); }
 });

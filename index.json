@@ -1,6 +1,6 @@
 {
  "v": 1,
- "generated": "2026-11-22T19:38:02Z",
+ "generated": "2026-11-22T19:39:34Z",
  "plugins": [
   {
    "id": "buddy-beatdown",
@@ -330,18 +330,18 @@
    "name": "dont blink",
    "trusted": false,
    "author": "idiot",
-   "desc": "dont_blink.js - Don't Blink (TripleC Games / Bmix) plugin for the universal menu (v1.0).",
+   "desc": "dont_blink.js - Don't Blink (TripleC Games / Bmix) plugin for the universal menu (v1.1).",
    "game": [
     "com.TripleCGames.DontBlinkByBmix"
    ],
-   "version": "57629430bfe4",
+   "version": "88a17bcd8476",
    "updated": "2026-11-22",
    "files": [
     {
      "name": "c-dont-blink.js",
      "path": "community/dont-blink/c-dont-blink.js",
-     "sha256": "2eb2fcb020972bc4f84ebf5b8f576875cf61a46f7139cf57b090ee8c9860ea8b",
-     "size": 95817
+     "sha256": "416d3ad77573ac4603ca22c63304cc52af78c16baddb42b1956dd1ba50e55c7a",
+     "size": 113251
     }
    ],
    "scan": {
