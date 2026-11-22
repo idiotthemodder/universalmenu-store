@@ -287,7 +287,7 @@ def publish(msg):
         return
     subprocess.run(["git", "-C", HERE, "commit", "-q", "-m", msg], check=True)
     subprocess.run(["git", "-C", HERE, "push", "-q"], check=True)
-    print("pushed: apps see it within ~5 minutes (GitHub raw cache)")
+    print("pushed: apps see it on their next Refresh")
 
 
 def main():
