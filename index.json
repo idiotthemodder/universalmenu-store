@@ -1,6 +1,6 @@
 {
  "v": 1,
- "generated": "2026-11-24T00:54:48Z",
+ "generated": "2026-11-24T01:01:31Z",
  "plugins": [
   {
    "id": "buddy-beatdown",
@@ -309,14 +309,14 @@
    "game": [
     "com.XORWIRE.StupidChimpSlop"
    ],
-   "version": "c50d57760ae8",
+   "version": "954964ebfed9",
    "updated": "2026-11-24",
    "files": [
     {
      "name": "stupid_chimp_slop.js",
      "path": "official/stupid-chimp-slop/stupid_chimp_slop.js",
-     "sha256": "fd8b9991bd3ce9a7c7dabdfb0d05e03321a3186b6bf23c11a138c5d65aa0f785",
-     "size": 96670
+     "sha256": "4c6842e24490fb2592e8fb7b6a84ddcdc307c537fef0be9d2ecb35351464106e",
+     "size": 98739
     }
    ],
    "scan": {
