@@ -1,6 +1,6 @@
 {
  "v": 1,
- "generated": "2026-11-22T20:56:44Z",
+ "generated": "2026-11-24T00:54:48Z",
  "plugins": [
   {
    "id": "buddy-beatdown",
@@ -305,18 +305,18 @@
    "name": "Stupid Chimp Slop",
    "trusted": true,
    "author": "idiotthemodder",
-   "desc": "stupid_chimp_slop.js - Stupid Chimp Slop (XORWIRE) plugin for the universal menu (v1.2).",
+   "desc": "stupid_chimp_slop.js - Stupid Chimp Slop (XORWIRE) plugin for the universal menu (v1.3).",
    "game": [
     "com.XORWIRE.StupidChimpSlop"
    ],
-   "version": "baad1f797c18",
-   "updated": "2026-11-22",
+   "version": "c50d57760ae8",
+   "updated": "2026-11-24",
    "files": [
     {
      "name": "stupid_chimp_slop.js",
      "path": "official/stupid-chimp-slop/stupid_chimp_slop.js",
-     "sha256": "3c32b4e39f7cb3195054efa8fb157ae80afac4bb9d14d7673add77b55e1c7506",
-     "size": 82358
+     "sha256": "fd8b9991bd3ce9a7c7dabdfb0d05e03321a3186b6bf23c11a138c5d65aa0f785",
+     "size": 96670
     }
    ],
    "scan": {
