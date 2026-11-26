@@ -15,7 +15,6 @@
     {"id": "monkeys-place", "name": "Monkeys Place (Realm port)", "files": ["realm-plugin.js"]},
     {"id": "scary-baboon", "name": "Scary Baboon", "files": ["scary_baboon.js"]},
     {"id": "stuff", "name": "Stuff", "files": ["stuff.js"]},
-    {"id": "stupid-chimp-slop", "name": "Stupid Chimp Slop", "files": ["stupid_chimp_slop.js"]},
     {"id": "gorilla-tag", "name": "Gorilla Tag", "files": ["gorilla_tag.js"],
      "desc": "gorilla_tag.js v3.3 - Gorilla Tag (com.AnotherAxiom.GorillaTag) plugin for the universal menu: self-only movement, rig poses, ESP styles, visuals and projectile tools, ported from the J0ker / Seralyth / hamburbur sources."}
   ]
