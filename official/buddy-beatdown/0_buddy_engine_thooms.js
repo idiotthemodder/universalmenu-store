@@ -2742,6 +2742,38 @@ function thObj(handle) {
 // Quick Fire (from THOOMS tuff_menu): on every weapon TriggerPressed, zero the timing/cooldown
 // fields and fill the ammo fields before and after the shot. Hooks install the first time you turn it on.
 var qfInstalled = false;
+// The real fire delay is on the gun's WeaponInfo (shared by every copy of that gun), not on the gun itself.
+// Originals are saved per WeaponInfo and put back when Quick Fire is turned off.
+var qfSavedInfo = {};
+function qfTuneWeaponInfo(gun) {
+    try {
+        var w = gun.field("weaponInfo").value;
+        if (!w || w.isNull()) return;
+        var key = w.handle.toString();
+        if (!qfSavedInfo[key]) {
+            qfSavedInfo[key] = {
+                obj: w,
+                FireRate: Number(w.field("FireRate").value),
+                WeaponCooldown: Number(w.field("WeaponCooldown").value),
+                FullyAuto: !!w.field("FullyAuto").value
+            };
+        }
+        w.field("FireRate").value = 0.02;
+        w.field("WeaponCooldown").value = 0.0;
+        w.field("FullyAuto").value = true;
+    } catch (e) { }
+}
+function qfRestoreWeaponInfo() {
+    for (var key in qfSavedInfo) {
+        var r = qfSavedInfo[key];
+        try {
+            r.obj.field("FireRate").value = r.FireRate;
+            r.obj.field("WeaponCooldown").value = r.WeaponCooldown;
+            r.obj.field("FullyAuto").value = r.FullyAuto;
+        } catch (e) { }
+    }
+    qfSavedInfo = {};
+}
 function thQuickFireInstall() {
     if (qfInstalled) return;
     qfInstalled = true;
@@ -2765,7 +2797,13 @@ function thQuickFireInstall() {
                     for (var f = 0; f < fields.length; f++) {
                         var field = fields[f];
                         if (field.isStatic) continue;
-                        var tn = field.type.name, val;
+                        var tn = field.type.name, val = undefined;
+                        // the gun's own full-auto flag: keep it ON (the name matches "fire" and used to get forced off)
+                        if (/^rapidFire$|^fullyAuto$/i.test(field.name)) {
+                            if (/Boolean/.test(tn)) plan.push([field, true]);
+                            continue;
+                        }
+                        if (/Action|Coroutine|Transform|GameObject|Queue|Mixer|Clip|Prefab|LayerMask/.test(tn)) continue;
                         if (timingRE.test(field.name)) {
                             if (/Single|Double|Int32|Int64/.test(tn)) val = 0;
                             else if (/Boolean/.test(tn)) val = false;
@@ -2786,6 +2824,7 @@ function thQuickFireInstall() {
             for (var i = 0; i < plan.length; i++) {
                 try { plan[i][0].bind(obj).value = plan[i][1]; } catch (e) { }
             }
+            qfTuneWeaponInfo(obj);
         };
         for (var w = 0; w < weaponNames.length; w++) {
             var klass;
@@ -3044,6 +3083,7 @@ onFrame(function () {
 
     // quick fire (TriggerPressed hooks, installed the first time you turn it on this session)
     if (p.quickFire && !qfInstalled) thQuickFireInstall();
+    if (!p.quickFire && Object.keys(qfSavedInfo).length) qfRestoreWeaponInfo();
 
     // safezone damage (kill anywhere): native install, only when you turn it on in this session
     if (p.safezoneDamage && !prev.safezoneDamage) thSafezoneDamageInstall();
@@ -3098,6 +3138,7 @@ onDisable(function () {
         thUltimateStopTimer();
         if (p.oneShot) { p.oneShot = false; thOneShot(false); }
         restoreSpeedHack();
+        qfRestoreWeaponInfo();
     } catch (e) { log("Cleanup: " + e); }
 });
 
