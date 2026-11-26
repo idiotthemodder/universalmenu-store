@@ -1,6 +1,6 @@
 {
  "v": 1,
- "generated": "2026-11-24T01:10:52Z",
+ "generated": "2026-11-26T06:25:49Z",
  "plugins": [
   {
    "id": "buddy-beatdown",
@@ -323,6 +323,31 @@
     "high": 0,
     "medium": 0,
     "low": 2
+   }
+  },
+  {
+   "id": "gorilla-tag",
+   "name": "Gorilla Tag",
+   "trusted": true,
+   "author": "idiotthemodder",
+   "desc": "gorilla_tag.js v3.3 - Gorilla Tag (com.AnotherAxiom.GorillaTag) plugin for the universal menu: self-only movement, rig poses, ESP styles, visuals and projectile tools, ported from the J0ker / Seralyth / hamburbur sources.",
+   "game": [
+    "com.AnotherAxiom.GorillaTag"
+   ],
+   "version": "604cd7800abb",
+   "updated": "2026-11-26",
+   "files": [
+    {
+     "name": "gorilla_tag.js",
+     "path": "official/gorilla-tag/gorilla_tag.js",
+     "sha256": "60ad011fc41b79ff84dad9c2a10f878d59cd8f938935ba13fbedea3231178adf",
+     "size": 226970
+    }
+   ],
+   "scan": {
+    "high": 0,
+    "medium": 0,
+    "low": 1
    }
   },
   {
