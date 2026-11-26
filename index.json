@@ -1,6 +1,6 @@
 {
  "v": 1,
- "generated": "2026-11-26T23:17:29Z",
+ "generated": "2026-11-26T23:51:53Z",
  "plugins": [
   {
    "id": "buddy-beatdown",
@@ -11,8 +11,8 @@
    "game": [
     "com.armoredpigstudios.beathimup"
    ],
-   "version": "56e47039af9e",
-   "updated": "2026-11-22",
+   "version": "88ee7c5298bb",
+   "updated": "2026-11-26",
    "files": [
     {
      "name": "0_buddy_engine.js",
@@ -23,8 +23,8 @@
     {
      "name": "0_buddy_engine_thooms.js",
      "path": "official/buddy-beatdown/0_buddy_engine_thooms.js",
-     "sha256": "4c962b8edf6fc5de3043ac0d60c4485d28b7dfb5ab1a27a81af7979425345550",
-     "size": 151638
+     "sha256": "eda4f345fb623c7e728d40f08ac86f2f99ebd959158ad2a1d2693a6a8ecc1163",
+     "size": 152610
     },
     {
      "name": "1_buddy_player.js",

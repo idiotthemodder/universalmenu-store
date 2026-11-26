@@ -31,7 +31,7 @@
 //    ● Scene scans (abilities, cooldowns, name tags) run at most once per second.
 //
 //  ✦ NOT HERE ON PURPOSE
-//    ✖ infinite ammo / damage / no recoil / unlock everything / quick fire / OP stats /
+//    ✖ infinite ammo / damage / no recoil / unlock everything / OP stats /
 //      aimbot / fast lasers / infinite beam / thumbstick scaling / unlimited zombies
 //      → buddy_beatdown.js covers ammo, recoil, unlocks, god mode and kills.
 //
@@ -202,6 +202,7 @@ var defs = [
 
     { type: "label", label: "♦ COMBAT  ► guns & abilities" },
     { type: "bool", key: "oneShot", label: "One-Shot Guns", default: false, desc: "sets every gun's WeaponInfo Damage/HitDamage to 99999 (restored when off)" },
+    { type: "bool", key: "quickFire", label: "Quick Fire", default: false, desc: "weapons fire again right away with full ammo (hooks every gun's TriggerPressed the first time you turn it on)" },
     { type: "bool", key: "noAbilityCooldown", label: "No Ability Cooldown", default: false },
     { type: "button", label: "Weapon Info (log)", onClick: function () { thWeaponInfo(); } },
 
@@ -342,6 +343,7 @@ var THOOMS_DESCS = {
     playerSize: "► ♦ everyone sees your head scaled by the slider (the neck is the only synced bone scale)",
     speedHack: "► overrides your move speed with the value below, your real speed returns when off",
     oneShot: "► every gun's damage becomes 99999, originals are saved and put back when off",
+    quickFire: "► every trigger pull resets the gun's fire timers and refills its ammo, hooks install the first time you turn it on",
     noAbilityCooldown: "► dash and other powers recharge instantly (checked about once a second)",
     zRapid: "► rifle zombies shoot much faster",
     zRecoil: "► rifle zombie guns stop kicking, shots land more accurately",
@@ -2737,6 +2739,78 @@ function thObj(handle) {
     try { return new Il2Cpp.Object(handle); } catch (e) { return null; }
 }
 
+// Quick Fire (from THOOMS tuff_menu): on every weapon TriggerPressed, zero the timing/cooldown
+// fields and fill the ammo fields before and after the shot. Hooks install the first time you turn it on.
+var qfInstalled = false;
+function thQuickFireInstall() {
+    if (qfInstalled) return;
+    qfInstalled = true;
+    var game;
+    try { game = gameImg(); } catch (e) { qfInstalled = false; log("Quick fire: classes not ready: " + e); return; }
+    try {
+        var weaponNames = ["MultiplayerPistol", "Pistol", "Crossbow", "Taser", "RPG", "Puncher", "WaterBottle",
+            "BuzzSaw", "SpecialHammer", "Flamethrower", "Grenade", "StickyGrenade", "PinGun", "Megaphone",
+            "Sword", "Arrow", "Missile"];
+        var timingRE = /fire|shoot|shot|reload|spin|burst|chamber|cooldown|delay|timer|rate|ready|hasFired|fired|next|last|spent|used/i;
+        var ammoRE = /ammo|bullet|mag|clip|round|load|charge/i;
+        var qfCache = {};
+        var qfPlan = function (klass) {
+            var key = klass.handle.toString();
+            if (qfCache[key]) return qfCache[key];
+            var plan = [];
+            try {
+                var hierarchy = klass.hierarchy();
+                for (var h = 0; h < hierarchy.length; h++) {
+                    var fields = hierarchy[h].fields;
+                    for (var f = 0; f < fields.length; f++) {
+                        var field = fields[f];
+                        if (field.isStatic) continue;
+                        var tn = field.type.name, val;
+                        if (timingRE.test(field.name)) {
+                            if (/Single|Double|Int32|Int64/.test(tn)) val = 0;
+                            else if (/Boolean/.test(tn)) val = false;
+                        }
+                        if (ammoRE.test(field.name)) {
+                            if (/Int32|Int64/.test(tn)) val = 99999;
+                            else if (/Single|Double/.test(tn)) val = 99999.0;
+                        }
+                        if (val !== undefined) plan.push([field, val]);
+                    }
+                }
+            } catch (e) { }
+            qfCache[key] = plan;
+            return plan;
+        };
+        var quickFireSlam = function (obj) {
+            var plan = qfPlan(obj.class);
+            for (var i = 0; i < plan.length; i++) {
+                try { plan[i][0].bind(obj).value = plan[i][1]; } catch (e) { }
+            }
+        };
+        for (var w = 0; w < weaponNames.length; w++) {
+            var klass;
+            try { klass = game.class(weaponNames[w]); } catch (e) { continue; }
+            for (var mi = 0; mi < klass.methods.length; mi++) {
+                var method = klass.methods[mi];
+                if (method.name !== "TriggerPressed" || method.parameters.length !== 0) continue;
+                try {
+                    void method.nativeFunction;
+                    (function (meth) {
+                        meth.implementation = function () {
+                            if (!p.quickFire) return meth.invokeRaw(this.handle);
+                            quickFireSlam(this);
+                            var result = meth.invokeRaw(this.handle);
+                            quickFireSlam(this);
+                            return result;
+                        };
+                    })(method);
+                } catch (e) { log("Quick fire " + weaponNames[w] + ": " + e); }
+            }
+        }
+        log("Quick fire hooks installed"); say("Quick Fire ON");
+    } catch (e) { log("Quick fire setup: " + e); }
+}
+
 function installHooks() {
     try {
         var game = gameImg();
@@ -2859,69 +2933,7 @@ function installHooks() {
         };
     } catch (e) { log("NPC despawn hook: " + e); }
 
-    // Quick fire
-    try {
-        var weaponNames = ["MultiplayerPistol", "Pistol", "Crossbow", "Taser", "RPG", "Puncher", "WaterBottle",
-            "BuzzSaw", "SpecialHammer", "Flamethrower", "Grenade", "StickyGrenade", "PinGun", "Megaphone",
-            "Sword", "Arrow", "Missile"];
-        var timingRE = /fire|shoot|shot|reload|spin|burst|chamber|cooldown|delay|timer|rate|ready|hasFired|fired|next|last|spent|used/i;
-        var ammoRE = /ammo|bullet|mag|clip|round|load|charge/i;
-        var qfCache = {};
-        var qfPlan = function (klass) {
-            var key = klass.handle.toString();
-            if (qfCache[key]) return qfCache[key];
-            var plan = [];
-            try {
-                var hierarchy = klass.hierarchy();
-                for (var h = 0; h < hierarchy.length; h++) {
-                    var fields = hierarchy[h].fields;
-                    for (var f = 0; f < fields.length; f++) {
-                        var field = fields[f];
-                        if (field.isStatic) continue;
-                        var tn = field.type.name, val;
-                        if (timingRE.test(field.name)) {
-                            if (/Single|Double|Int32|Int64/.test(tn)) val = 0;
-                            else if (/Boolean/.test(tn)) val = false;
-                        }
-                        if (ammoRE.test(field.name)) {
-                            if (/Int32|Int64/.test(tn)) val = 99999;
-                            else if (/Single|Double/.test(tn)) val = 99999.0;
-                        }
-                        if (val !== undefined) plan.push([field, val]);
-                    }
-                }
-            } catch (e) { }
-            qfCache[key] = plan;
-            return plan;
-        };
-        var quickFireSlam = function (obj) {
-            var plan = qfPlan(obj.class);
-            for (var i = 0; i < plan.length; i++) {
-                try { plan[i][0].bind(obj).value = plan[i][1]; } catch (e) { }
-            }
-        };
-        for (var w = 0; w < weaponNames.length; w++) {
-            var klass;
-            try { klass = game.class(weaponNames[w]); } catch (e) { continue; }
-            for (var mi = 0; mi < klass.methods.length; mi++) {
-                var method = klass.methods[mi];
-                if (method.name !== "TriggerPressed" || method.parameters.length !== 0) continue;
-                try {
-                    void method.nativeFunction;
-                    (function (meth) {
-                        meth.implementation = function () {
-                            if (!p.quickFire) return meth.invokeRaw(this.handle);
-                            quickFireSlam(this);
-                            var result = meth.invokeRaw(this.handle);
-                            quickFireSlam(this);
-                            return result;
-                        };
-                    })(method);
-                } catch (e) { log("Quick fire " + weaponNames[w] + ": " + e); }
-            }
-        }
-        log("Quick fire hooks installed");
-    } catch (e) { log("Quick fire setup: " + e); }
+    thQuickFireInstall();
 
     // Infinite beam
     try {
@@ -3030,6 +3042,9 @@ onFrame(function () {
     else if (!p.nameBypass && prev.nameBypass) thNameBypassStop();
     prev.nameBypass = p.nameBypass;
 
+    // quick fire (TriggerPressed hooks, installed the first time you turn it on this session)
+    if (p.quickFire && !qfInstalled) thQuickFireInstall();
+
     // safezone damage (kill anywhere): native install, only when you turn it on in this session
     if (p.safezoneDamage && !prev.safezoneDamage) thSafezoneDamageInstall();
     prev.safezoneDamage = p.safezoneDamage;
@@ -3089,4 +3104,5 @@ onDisable(function () {
 // on-demand hooks never auto-install from saved settings at launch
 p.safezoneDamage = false;
 p.nameBypass = false;
+p.quickFire = false;
 log("THOOMS Buddy Beatdown LITE loaded (no native hooks) - open its section in the Plugins tab");
